@@ -101,7 +101,7 @@ public class CacheClient {
         // 5.2 已过期，需要缓存重建
         // 6、缓存重建
         // 6.1 获取互斥锁
-        String lockKey=keyPrefix+id;
+        String lockKey=lockPrefix+id;
         boolean isLock = tryLock(lockKey);
 
         // 6.2 判断是否获取锁成功
