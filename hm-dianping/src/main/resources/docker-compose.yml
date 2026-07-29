@@ -1,0 +1,22 @@
+services:
+  redis-6381:
+    image: redis:6.2.6-alpine
+    container_name: redis-6381
+    ports:
+      - "6381:6379"
+    command: redis-server --requirepass 123321 --appendonly yes
+    volumes:
+      - redis-6381-data:/data
+
+  redis-6382:
+    image: redis:6.2.6-alpine
+    container_name: redis-6382
+    ports:
+      - "6382:6379"
+    command: redis-server --requirepass 123321 --appendonly yes
+    volumes:
+      - redis-6382-data:/data
+
+volumes:
+  redis-6381-data:
+  redis-6382-data:
