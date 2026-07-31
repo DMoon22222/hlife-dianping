@@ -1,4 +1,4 @@
-services:
+﻿services:
   redis-6381:
     image: redis:6.2.6-alpine
     container_name: redis-6381
@@ -17,6 +17,23 @@ services:
     volumes:
       - redis-6382-data:/data
 
+  rabbitmq:
+    image: rabbitmq:4.3.4-management
+    container_name: hmdp-rabbitmq
+    hostname: hmdp-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: hmdp
+      RABBITMQ_DEFAULT_PASS: hmdp_mq_2026
+      RABBITMQ_DEFAULT_VHOST: "/hmdp"
+      TZ: Asia/Shanghai
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+
 volumes:
   redis-6381-data:
   redis-6382-data:
+  rabbitmq-data:

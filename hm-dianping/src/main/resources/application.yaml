@@ -18,6 +18,27 @@ spring:
         max-idle: 10
         min-idle: 1
         time-between-eviction-runs: 10s
+
+  rabbitmq:
+    host: 127.0.0.1
+    port: 5672
+    username: hmdp
+    password: hmdp_mq_2026
+    virtual-host: /hmdp
+
+    publisher-confirm-type: correlated
+    publisher-returns: true
+
+    template:
+      mandatory: true
+
+    listener:
+      simple:
+        acknowledge-mode: manual
+        prefetch: 20
+        concurrency: 2
+        max-concurrency: 8
+        default-requeue-rejected: false
   jackson:
     default-property-inclusion: non_null # JSON处理时忽略非空字段
 mybatis-plus:
