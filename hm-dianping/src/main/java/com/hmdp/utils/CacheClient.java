@@ -83,8 +83,13 @@ public class CacheClient {
 
         // 2、判断缓存是否命中
         if (StrUtil.isBlank(shopJson)) {
-            // 3、未命中，直接返回空
-            return null;
+            R r = dbFallback.apply(id);
+            if (r == null) {
+                stringRedisTemplate.opsForValue().set(key, "", CACHE_NULL_TTL, TimeUnit.MINUTES);
+                return null;
+            }
+            this.setWithLogicalExpire(key, r, time, unit);
+            return r;
         }
         // 4、命中，需要先把JSON反序列化为对象
         RedisData redisData = JSONUtil.toBean(shopJson, RedisData.class);

@@ -42,6 +42,7 @@ public class Blog implements Serializable {
     private Long userId;
     /**
      * 用户图标
+     * @TableField(exist = false) 含义是不是当前表的字段
      */
     @TableField(exist = false)
     private String icon;
