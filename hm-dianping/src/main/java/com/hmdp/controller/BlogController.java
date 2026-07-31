@@ -1,6 +1,7 @@
 package com.hmdp.controller;
 
 
+import cn.hutool.core.bean.BeanUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.hmdp.dto.Result;
 import com.hmdp.dto.UserDTO;
@@ -10,10 +11,16 @@ import com.hmdp.service.IBlogService;
 import com.hmdp.service.IUserService;
 import com.hmdp.utils.SystemConstants;
 import com.hmdp.utils.UserHolder;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import static com.hmdp.utils.RedisConstants.BLOG_LIKED_KEY;
 
 /**
  * <p>
@@ -29,6 +36,10 @@ public class BlogController {
 
     @Resource
     private IBlogService blogService;
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
+    @Resource
+    private IUserService userService;
 
 
     @PostMapping
@@ -66,5 +77,10 @@ public class BlogController {
     @GetMapping("/{id}")
     public Result queryById(@PathVariable Long id){
         return blogService.queryById(id);
+    }
+
+    @GetMapping("/likes/{id}")
+    public Result queryBlogLikes(@PathVariable Long id){
+          return blogService.queryBlogLikes(id);
     }
 }
