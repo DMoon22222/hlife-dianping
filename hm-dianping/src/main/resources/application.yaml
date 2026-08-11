@@ -45,7 +45,8 @@ mybatis-plus:
   type-aliases-package: com.hmdp.entity # 别名扫描包
 logging:
   level:
-    com.hmdp: debug
+    root: warn
+    com.hmdp: warn
 
 hmdp:
   id-generator:

@@ -4,8 +4,11 @@ import com.hmdp.entity.VoucherOrder;
 import com.hmdp.service.IVoucherOrderService;
 import com.rabbitmq.client.Channel;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.AmqpException;
 import org.springframework.amqp.core.Message;
+import org.springframework.amqp.core.MessageDeliveryMode;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Component;
@@ -14,6 +17,7 @@ import javax.annotation.Resource;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static com.hmdp.mq.RabbitMqConstants.*;
 
@@ -36,12 +40,15 @@ public class VoucherOrderConsumer {
      * 最多重试3次
      */
     private static final long MAX_RETRY_COUNT = 3;
+    private static final long FAILED_MESSAGE_CONFIRM_TIMEOUT_SECONDS = 5;
 
     @Resource
     private IVoucherOrderService voucherOrderService;
 
     @Resource
     private RabbitTemplate rabbitTemplate;
+    @Resource
+    private PendingOrderService pendingOrderService;
 
     @RabbitListener(queues = ORDER_QUEUE)
     public void listenVoucherOrder(
@@ -73,22 +80,14 @@ public class VoucherOrderConsumer {
             /*
              * 调用Service事务方法 把秒杀订单写入MySQL，并扣减MySQL库存
              */
-            voucherOrderService.createVouchOrder(
-                    voucherOrder
-            );
-
+            voucherOrderService.createVouchOrder(voucherOrder);
+            pendingOrderService.removePending(orderMessage.getOrderId());
             /*
              * 数据库事务成功后再ACK
              */
-            channel.basicAck(
-                    deliveryTag,
-                    false
-            );
+            channel.basicAck(deliveryTag, false);
 
-            log.info(
-                    "秒杀订单创建成功，orderId={}",
-                    orderMessage.getOrderId()
-            );
+            log.info("秒杀订单创建成功，orderId={}", orderMessage.getOrderId());
 
         } catch (DuplicateKeyException e) {
 
@@ -99,15 +98,10 @@ public class VoucherOrderConsumer {
              * 重复消息不能继续重试，
              * 应直接确认。
              */
-            channel.basicAck(
-                    deliveryTag,
-                    false
-            );
+            pendingOrderService.removePending(orderMessage.getOrderId());
+            channel.basicAck(deliveryTag, false);
 
-            log.warn(
-                    "订单重复消费，已被唯一索引拦截，orderId={}",
-                    orderMessage.getOrderId()
-            );
+            log.warn("订单重复消费，已被唯一索引拦截，orderId={}", orderMessage.getOrderId());
 
         } catch (Exception e) {
 
@@ -128,11 +122,7 @@ public class VoucherOrderConsumer {
                  * 发送到最终失败队列。
                  */
                 try {
-                    rabbitTemplate.convertAndSend(
-                            ORDER_FAILED_EXCHANGE,
-                            ORDER_FAILED_ROUTING_KEY,
-                            orderMessage
-                    );
+                    sendToFailedQueueAndWaitForConfirm(orderMessage);
 
                     /*
                      * 确认原消息，
@@ -149,6 +139,10 @@ public class VoucherOrderConsumer {
                     );
 
                 } catch (Exception sendFailedException) {
+
+                    if (sendFailedException instanceof InterruptedException) {
+                        Thread.currentThread().interrupt();
+                    }
 
                     /*
                      * 如果连失败队列也发送失败，
@@ -176,9 +170,52 @@ public class VoucherOrderConsumer {
              * 因为主队列配置了死信交换机，
              * 消息会进入5秒重试队列。
              */
-            channel.basicReject(
-                    deliveryTag,
-                    false
+            channel.basicReject(deliveryTag, false);
+        }
+    }
+
+    private void sendToFailedQueueAndWaitForConfirm(
+            VoucherOrderMessage orderMessage
+    ) throws Exception {
+        Long orderId = orderMessage.getOrderId();
+        CorrelationData correlationData = new CorrelationData(
+                FAILED_CORRELATION_PREFIX + orderId
+        );
+
+        rabbitTemplate.convertAndSend(
+                ORDER_FAILED_EXCHANGE,
+                ORDER_FAILED_ROUTING_KEY,
+                orderMessage,
+                message -> {
+                    message.getMessageProperties().setDeliveryMode(
+                            MessageDeliveryMode.PERSISTENT
+                    );
+                    message.getMessageProperties().setMessageId(orderId.toString());
+                    message.getMessageProperties().setHeader(
+                            MESSAGE_PURPOSE_HEADER,
+                            FAILED_MESSAGE_PURPOSE
+                    );
+                    return message;
+                },
+                correlationData
+        );
+
+        CorrelationData.Confirm confirm = correlationData.getFuture().get(
+                FAILED_MESSAGE_CONFIRM_TIMEOUT_SECONDS,
+                TimeUnit.SECONDS
+        );
+
+        if (confirm == null || !confirm.isAck()) {
+            String reason = confirm == null ? "confirm is null" : confirm.getReason();
+            throw new AmqpException(
+                    "失败订单消息未被Broker确认，orderId=" + orderId + "，reason=" + reason
+            );
+        }
+
+        if (correlationData.getReturned() != null) {
+            throw new AmqpException(
+                    "失败订单消息无法路由，orderId=" + orderId
+                            + "，replyText=" + correlationData.getReturned().getReplyText()
             );
         }
     }

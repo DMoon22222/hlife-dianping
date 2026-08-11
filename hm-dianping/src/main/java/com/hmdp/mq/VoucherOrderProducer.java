@@ -10,6 +10,9 @@ import org.springframework.stereotype.Component;
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 
+import static com.hmdp.mq.RabbitMqConstants.FAILED_CORRELATION_PREFIX;
+import static com.hmdp.mq.RabbitMqConstants.FAILED_MESSAGE_PURPOSE;
+import static com.hmdp.mq.RabbitMqConstants.MESSAGE_PURPOSE_HEADER;
 import static com.hmdp.mq.RabbitMqConstants.ORDER_EXCHANGE;
 import static com.hmdp.mq.RabbitMqConstants.ORDER_ROUTING_KEY;
 
@@ -30,6 +33,8 @@ public class VoucherOrderProducer
 
     @Resource
     private RabbitTemplate rabbitTemplate;
+    @Resource
+    private PendingOrderService pendingOrderService;
 
     @PostConstruct
     public void init() {
@@ -76,59 +81,81 @@ public class VoucherOrderProducer
      * Broker确认回调 交换机是否成功接收到消息
      */
     @Override
-    public void confirm(
-            CorrelationData correlationData,
-            boolean ack,
-            String cause
-    ) {
-        String messageId = correlationData == null
-                ? "unknown"
-                : correlationData.getId();
+    public void confirm(CorrelationData correlationData, boolean ack, String cause) {
+        if (correlationData == null || correlationData.getId() == null) {
+            if (ack) {
+                log.debug("RabbitMQ Confirm 回调未携带业务关联数据，ack=true");
+            } else {
+                log.error("RabbitMQ Confirm 回调缺少 CorrelationData，ack=false，cause={}", cause);
+            }
+            return;
+        }
+
+        String correlationId = correlationData.getId();
+        if (correlationId.startsWith(FAILED_CORRELATION_PREFIX)) {
+            if (ack) {
+                log.debug("RabbitMQ Broker 已接收失败转发消息，correlationId={}", correlationId);
+            } else {
+                log.error("RabbitMQ Broker 拒绝失败转发消息，correlationId={}，cause={}",
+                        correlationId, cause);
+            }
+            return;
+        }
+
+        Long orderId;
+        try {
+            orderId = Long.valueOf(correlationId);
+        } catch (NumberFormatException e) {
+            log.warn("RabbitMQ Confirm 回调包含未知 CorrelationData，correlationId={}，ack={}，cause={}",
+                    correlationId, ack, cause);
+            return;
+        }
 
         if (ack) {
-            log.debug(
-                    "RabbitMQ成功接收订单消息，messageId={}",
-                    messageId
-            );
-        } else {
-            log.error(
-                    "RabbitMQ接收订单消息失败，messageId={}，原因={}",
-                    messageId,
-                    cause
-            );
-
-            /*
-             * 后续增强版：
-             * 在这里记录待补偿消息，
-             * 由定时任务重新投递。
-             */
+            pendingOrderService.markSendSuccess(orderId);
+            log.debug("RabbitMQ Broker 已接收订单消息，orderId={}", orderId);
+            return;
         }
+
+        pendingOrderService.markSendFailed(orderId, cause);
+        log.error("RabbitMQ Broker 接收订单消息失败，orderId={}，cause={}", orderId, cause);
     }
 
     /**
      * 消息无法路由到队列时退回生产者 消息是否成功路由到队列
      */
     @Override
-    public void returnedMessage(
-            Message message,
-            int replyCode,
-            String replyText,
-            String exchange,
-            String routingKey
-    ) {
-        log.error(
-                "RabbitMQ消息无法路由，replyCode={}，replyText={}，"
-                        + "exchange={}，routingKey={}，message={}",
-                replyCode,
-                replyText,
-                exchange,
-                routingKey,
-                message
-        );
+    public void returnedMessage(Message message, int replyCode, String replyText, String exchange, String routingKey) {
+        Object purpose = message.getMessageProperties()
+                .getHeaders()
+                .get(MESSAGE_PURPOSE_HEADER);
+        if (FAILED_MESSAGE_PURPOSE.equals(String.valueOf(purpose))) {
+            log.error("RabbitMQ 失败转发消息无法路由，messageId={}，replyCode={}，replyText={}，exchange={}，routingKey={}",
+                    message.getMessageProperties().getMessageId(),
+                    replyCode,
+                    replyText,
+                    exchange,
+                    routingKey);
+            return;
+        }
 
-        /*
-         * 后续增强版：
-         * 这里也应该记录待补偿消息。
-         */
+        //将RabbitMQ消息反序列化
+        Object converted = rabbitTemplate.getMessageConverter().fromMessage(message);
+        if (!(converted instanceof VoucherOrderMessage)) {
+            log.error("RabbitMQ Return 消息反序列化失败，replyCode={}，replyText={}，message={}",
+                    replyCode, replyText, message);
+            return;
+        }
+
+        VoucherOrderMessage orderMessage = (VoucherOrderMessage) converted;
+        String reason = "return replyCode=" + replyCode
+                + ", replyText=" + replyText
+                + ", exchange=" + exchange
+                + ", routingKey=" + routingKey;
+
+        pendingOrderService.markRouteFailed(orderMessage, reason);
+        log.error("RabbitMQ 订单消息无法路由，orderId={}，{}", orderMessage.getOrderId(), reason);
     }
 }
+
+

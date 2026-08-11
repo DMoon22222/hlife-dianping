@@ -1,14 +1,24 @@
 package com.hmdp.config;
 
+import org.springframework.amqp.AmqpRejectAndDontRequeueException;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
+import org.springframework.amqp.core.AcknowledgeMode;
 import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
+import org.springframework.amqp.rabbit.config.RetryInterceptorBuilder;
+import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.rabbit.retry.MessageRecoverer;
+import org.springframework.amqp.rabbit.retry.RepublishMessageRecovererWithConfirms;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.retry.interceptor.RetryOperationsInterceptor;
 
 import static com.hmdp.mq.RabbitMqConstants.*;
 
@@ -121,6 +131,81 @@ public class RabbitMqConfig {
                 .bind(orderFailedQueue())
                 .to(orderFailedExchange())
                 .with(ORDER_FAILED_ROUTING_KEY);
+    }
+
+    @Bean
+    public DirectExchange orderFailedParkingExchange() {
+        return new DirectExchange(
+                ORDER_FAILED_PARKING_EXCHANGE,
+                true,
+                false
+        );
+    }
+
+    @Bean
+    public Queue orderFailedParkingQueue() {
+        return QueueBuilder
+                .durable(ORDER_FAILED_PARKING_QUEUE)
+                .build();
+    }
+
+    @Bean
+    public Binding orderFailedParkingBinding() {
+        return BindingBuilder
+                .bind(orderFailedParkingQueue())
+                .to(orderFailedParkingExchange())
+                .with(ORDER_FAILED_PARKING_ROUTING_KEY);
+    }
+
+    /**
+     * 最终失败消息首次处理失败后最多再重试 3 次；全部失败后将原消息
+     * 可靠发布到停车交换机，避免在失败队列中无限重新入队。
+     */
+    @Bean
+    public MessageRecoverer failedOrderMessageRecoverer(
+            RabbitTemplate rabbitTemplate) {
+        RepublishMessageRecovererWithConfirms republishRecoverer =
+                new RepublishMessageRecovererWithConfirms(
+                        rabbitTemplate,
+                        ORDER_FAILED_PARKING_EXCHANGE,
+                        ORDER_FAILED_PARKING_ROUTING_KEY,
+                        CachingConnectionFactory.ConfirmType.CORRELATED
+                );
+        republishRecoverer.setConfirmTimeout(5000);
+
+        return (message, cause) -> {
+            republishRecoverer.recover(message, cause);
+            throw new AmqpRejectAndDontRequeueException(
+                    "失败消息已确认转发到停车队列",
+                    cause
+            );
+        };
+    }
+
+    @Bean
+    public RetryOperationsInterceptor failedOrderRetryInterceptor(
+            MessageRecoverer failedOrderMessageRecoverer) {
+        return RetryInterceptorBuilder.stateless()
+                .maxAttempts(4)
+                .backOffOptions(1000, 2.0, 5000)
+                .recoverer(failedOrderMessageRecoverer)
+                .build();
+    }
+
+    @Bean
+    public SimpleRabbitListenerContainerFactory failedOrderRabbitListenerContainerFactory(
+            ConnectionFactory connectionFactory,
+            MessageConverter messageConverter,
+            RetryOperationsInterceptor failedOrderRetryInterceptor) {
+        SimpleRabbitListenerContainerFactory factory =
+                new SimpleRabbitListenerContainerFactory();
+        factory.setConnectionFactory(connectionFactory);
+        factory.setMessageConverter(messageConverter);
+        factory.setAcknowledgeMode(AcknowledgeMode.MANUAL);
+        factory.setDefaultRequeueRejected(true);
+        factory.setPrefetchCount(1);
+        factory.setAdviceChain(failedOrderRetryInterceptor);
+        return factory;
     }
 
     /**

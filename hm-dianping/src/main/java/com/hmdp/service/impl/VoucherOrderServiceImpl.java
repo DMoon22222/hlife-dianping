@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.dto.Result;
 import com.hmdp.entity.VoucherOrder;
 import com.hmdp.mapper.VoucherOrderMapper;
+import com.hmdp.mq.PendingOrderService;
 import com.hmdp.mq.VoucherOrderMessage;
 import com.hmdp.mq.VoucherOrderProducer;
 import com.hmdp.service.ISeckillVoucherService;
@@ -35,6 +36,8 @@ public class VoucherOrderServiceImpl
 
     @Resource
     private StringRedisTemplate stringRedisTemplate;
+    @Resource
+    private PendingOrderService pendingOrderService;
 
     /**
      * RabbitMQ订单消息生产者
@@ -63,103 +66,47 @@ public class VoucherOrderServiceImpl
      */
     @Override
     public Result seckillVoucher(Long voucherId) {
+        Long userId = UserHolder.getUser().getId();
+        Long orderId = snowflakeIdGenerator.nextId();
+        long now = System.currentTimeMillis();
 
-        Long userId =
-                UserHolder.getUser().getId();
-
-        /*
-         * 1. 执行Lua脚本
-         *
-         * Lua会原子完成：
-         * - 判断库存
-         * - 判断一人一单
-         * - Redis预扣库存
-         * - 记录已下单用户
-         */
-        Long result =
-                stringRedisTemplate.execute(
-                        SECKILL_SCRIPT,
-                        Arrays.asList(
-                                "seckill:stock:"
-                                        + voucherId,
-
-                                "seckill:order:"
-                                        + voucherId
-                        ),
-                        userId.toString()
-                );
+        Long result = stringRedisTemplate.execute(
+                SECKILL_SCRIPT,
+                Arrays.asList(
+                        "seckill:stock:" + voucherId,
+                        "seckill:order:" + voucherId,
+                        "seckill:pending",
+                        "seckill:pending:data:" + orderId
+                ),
+                userId.toString(),
+                voucherId.toString(),
+                orderId.toString(),
+                String.valueOf(now)
+        );
 
         if (result == null) {
-            return Result.fail(
-                    "秒杀服务异常"
-            );
+            return Result.fail("秒杀服务异常");
         }
 
         int code = result.intValue();
-
         if (code != 0) {
-            return Result.fail(
-                    code == 1
-                            ? "库存不足"
-                            : "不能重复下单"
-            );
+            return Result.fail(code == 1 ? "库存不足" : "不能重复下单");
         }
 
-        /*
-         * 2. 生成订单ID
-         */
-        Long orderId =
-                snowflakeIdGenerator.nextId();
-
-        /*
-         * 3. 创建RabbitMQ消息
-         */
         VoucherOrderMessage orderMessage =
-                new VoucherOrderMessage(
-                        orderId,
-                        userId,
-                        voucherId
-                );
+                new VoucherOrderMessage(orderId, userId, voucherId);
 
-        /*
-         * 4. 发送到RabbitMQ
-         */
         try {
-            voucherOrderProducer
-                    .sendOrderMessage(
-                            orderMessage
-                    );
+            voucherOrderProducer.sendOrderMessage(orderMessage);
         } catch (AmqpException e) {
-
-            log.error(
-                    "发送秒杀订单消息失败，orderId={}",
+            pendingOrderService.markSendFailed(
                     orderId,
-                    e
+                    "convertAndSend exception: " + e.getMessage()
             );
-
-            /*
-             * 注意：
-             * 这里不能简单直接恢复Redis库存。
-             *
-             * 因为发生异常时，消息可能已经到达RabbitMQ，
-             * 只是网络确认丢失。
-             *
-             * 后续增强版需要：
-             * - 待投递消息记录
-             * - 定时对账
-             * - Redis Stream Outbox
-             */
-            return Result.fail(
-                    "系统繁忙，请稍后查询订单结果"
-            );
+            log.error("发送秒杀订单消息异常，orderId={}", orderId, e);
+            return Result.ok(orderId);
         }
 
-        /*
-         * 5. 立即返回订单ID
-         *
-         * 此时表示秒杀请求已被接收，
-         * 不代表MySQL订单已经创建完成。
-         */
         return Result.ok(orderId);
     }
 

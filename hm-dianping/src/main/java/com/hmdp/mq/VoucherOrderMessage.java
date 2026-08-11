@@ -27,4 +27,6 @@ public class VoucherOrderMessage implements Serializable {
      * 优惠券ID
      */
     private Long voucherId;
+
+
 }

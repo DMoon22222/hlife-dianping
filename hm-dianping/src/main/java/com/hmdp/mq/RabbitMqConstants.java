@@ -37,4 +37,28 @@ public final class RabbitMqConstants {
 
     public static final String ORDER_FAILED_ROUTING_KEY =
             "order.failed";
+
+    /**
+     * 标识正常消费者向最终失败队列转发的内部消息。
+     */
+    public static final String MESSAGE_PURPOSE_HEADER =
+            "x-hmdp-message-purpose";
+
+    public static final String FAILED_MESSAGE_PURPOSE =
+            "failed-order";
+
+    public static final String FAILED_CORRELATION_PREFIX =
+            "failed-order:";
+
+    /**
+     * 最终失败消费者重试耗尽后的停车交换机、队列和路由键。
+     */
+    public static final String ORDER_FAILED_PARKING_EXCHANGE =
+            "hmdp.order.failed.parking.exchange";
+
+    public static final String ORDER_FAILED_PARKING_QUEUE =
+            "hmdp.order.failed.parking.queue";
+
+    public static final String ORDER_FAILED_PARKING_ROUTING_KEY =
+            "order.failed.parking";
 }
