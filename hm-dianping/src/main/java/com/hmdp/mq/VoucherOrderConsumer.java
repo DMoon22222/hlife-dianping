@@ -71,7 +71,7 @@ public class VoucherOrderConsumer {
             );
 
             /*
-             * 调用Service事务方法
+             * 调用Service事务方法 把秒杀订单写入MySQL，并扣减MySQL库存
              */
             voucherOrderService.createVouchOrder(
                     voucherOrder

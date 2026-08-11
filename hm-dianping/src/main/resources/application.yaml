@@ -46,3 +46,10 @@ mybatis-plus:
 logging:
   level:
     com.hmdp: debug
+
+hmdp:
+  id-generator:
+    # 同一数据中心内，每个应用实例必须使用不同的 worker-id。
+    worker-id: 1
+    # 不同机房或逻辑部署区域使用不同的 datacenter-id。
+    datacenter-id: 1

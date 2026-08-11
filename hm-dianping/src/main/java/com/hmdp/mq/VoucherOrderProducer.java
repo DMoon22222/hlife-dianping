@@ -73,7 +73,7 @@ public class VoucherOrderProducer
     }
 
     /**
-     * Broker确认回调
+     * Broker确认回调 交换机是否成功接收到消息
      */
     @Override
     public void confirm(
@@ -106,7 +106,7 @@ public class VoucherOrderProducer
     }
 
     /**
-     * 消息无法路由到队列时回调
+     * 消息无法路由到队列时退回生产者 消息是否成功路由到队列
      */
     @Override
     public void returnedMessage(

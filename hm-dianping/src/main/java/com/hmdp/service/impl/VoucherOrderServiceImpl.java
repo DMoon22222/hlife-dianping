@@ -8,7 +8,7 @@ import com.hmdp.mq.VoucherOrderMessage;
 import com.hmdp.mq.VoucherOrderProducer;
 import com.hmdp.service.ISeckillVoucherService;
 import com.hmdp.service.IVoucherOrderService;
-import com.hmdp.utils.RedisIdWorker;
+import com.hmdp.utils.SnowflakeIdGenerator;
 import com.hmdp.utils.UserHolder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.AmqpException;
@@ -31,7 +31,7 @@ public class VoucherOrderServiceImpl
     private ISeckillVoucherService seckillVoucherService;
 
     @Resource
-    private RedisIdWorker redisIdWorker;
+    private SnowflakeIdGenerator snowflakeIdGenerator;
 
     @Resource
     private StringRedisTemplate stringRedisTemplate;
@@ -109,7 +109,7 @@ public class VoucherOrderServiceImpl
          * 2. 生成订单ID
          */
         Long orderId =
-                redisIdWorker.nextId("order");
+                snowflakeIdGenerator.nextId();
 
         /*
          * 3. 创建RabbitMQ消息

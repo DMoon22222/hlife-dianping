@@ -27,7 +27,7 @@ public final class RabbitMqConstants {
             "order.retry";
 
     /**
-     * 最终失败队列
+     * 最终失败交换机、队列和路由键
      */
     public static final String ORDER_FAILED_EXCHANGE =
             "hmdp.order.failed.exchange";
