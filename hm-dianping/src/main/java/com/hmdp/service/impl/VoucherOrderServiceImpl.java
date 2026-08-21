@@ -13,7 +13,9 @@ import com.hmdp.utils.SnowflakeIdGenerator;
 import com.hmdp.utils.UserHolder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.AmqpException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
@@ -44,6 +46,9 @@ public class VoucherOrderServiceImpl
      */
     @Resource
     private VoucherOrderProducer voucherOrderProducer;
+
+    @Value("${hmdp.seckill.async-enabled:true}")
+    private boolean seckillAsyncEnabled;
 
     private static final DefaultRedisScript<Long>
             SECKILL_SCRIPT;
@@ -93,6 +98,10 @@ public class VoucherOrderServiceImpl
             return Result.fail(code == 1 ? "库存不足" : "不能重复下单");
         }
 
+        if (!seckillAsyncEnabled) {
+            return createOrderSynchronously(orderId, userId, voucherId);
+        }
+
         VoucherOrderMessage orderMessage =
                 new VoucherOrderMessage(orderId, userId, voucherId);
 
@@ -108,6 +117,29 @@ public class VoucherOrderServiceImpl
         }
 
         return Result.ok(orderId);
+    }
+
+    private Result createOrderSynchronously(Long orderId, Long userId, Long voucherId) {
+        VoucherOrder voucherOrder = new VoucherOrder();
+        voucherOrder.setId(orderId);
+        voucherOrder.setUserId(userId);
+        voucherOrder.setVoucherId(voucherId);
+
+        try {
+            createVouchOrder(voucherOrder);
+            pendingOrderService.removePending(orderId);
+            return Result.ok(orderId);
+        } catch (DuplicateKeyException e) {
+            pendingOrderService.restorePreDeduct(orderId, userId, voucherId);
+            pendingOrderService.markFailed(orderId, "sync duplicate order: " + e.getMessage());
+            log.warn("同步创建秒杀订单失败，用户重复下单，orderId={}", orderId, e);
+            return Result.fail("不能重复下单");
+        } catch (Exception e) {
+            pendingOrderService.restorePreDeduct(orderId, userId, voucherId);
+            pendingOrderService.markFailed(orderId, "sync create order failed: " + e.getMessage());
+            log.error("同步创建秒杀订单异常，orderId={}", orderId, e);
+            return Result.fail("秒杀服务异常");
+        }
     }
 
     /**

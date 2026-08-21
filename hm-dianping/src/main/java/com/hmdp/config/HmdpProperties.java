@@ -22,6 +22,8 @@ public class HmdpProperties {
 
     private Redisson redisson = new Redisson();
 
+    private SeckillProperties seckill = new SeckillProperties();
+
     @Data
     public static class Cache {
         private Shop shop = new Shop();
@@ -55,11 +57,11 @@ public class HmdpProperties {
          */
         private boolean enabled = true;
 
-        private Seckill seckill = new Seckill();
+        private RateLimitSeckill seckill = new RateLimitSeckill();
     }
 
     @Data
-    public static class Seckill {
+    public static class RateLimitSeckill {
         /**
          * Maximum requests allowed in one sliding window.
          */
@@ -77,5 +79,13 @@ public class HmdpProperties {
          * Whether to create RedissonClient beans.
          */
         private boolean enabled = false;
+    }
+
+    @Data
+    public static class SeckillProperties {
+        /**
+         * Whether seckill order creation should be sent to RabbitMQ asynchronously.
+         */
+        private boolean asyncEnabled = true;
     }
 }

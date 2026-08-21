@@ -69,3 +69,8 @@ hmdp:
     seckill:
       max-count: 300
       window-seconds: 1
+  seckill:
+    # RabbitMQ 异步下单对比压测开关：
+    # true：Redis 预扣后发送 RabbitMQ，接口立即返回；
+    # false：Redis 预扣后在接口线程同步写 MySQL，再返回。
+    async-enabled: true

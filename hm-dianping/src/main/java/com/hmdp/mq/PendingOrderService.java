@@ -1,9 +1,12 @@
 package com.hmdp.mq;
 
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
+import java.util.Arrays;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
@@ -23,6 +26,13 @@ public class PendingOrderService {
     private static final long INITIAL_RETRY_DELAY_MILLIS = 10_000L;
     // 单次重试最长等待5分钟。
     private static final long MAX_RETRY_DELAY_MILLIS = 300_000L;
+    private static final DefaultRedisScript<Long> RESTORE_SCRIPT;
+
+    static {
+        RESTORE_SCRIPT = new DefaultRedisScript<>();
+        RESTORE_SCRIPT.setLocation(new ClassPathResource("seckill_restore.lua"));
+        RESTORE_SCRIPT.setResultType(Long.class);
+    }
 
     @Resource
     private StringRedisTemplate stringRedisTemplate;
@@ -149,6 +159,21 @@ public class PendingOrderService {
         stringRedisTemplate.opsForHash().put(dataKey, "lastError", safe(reason));
         stringRedisTemplate.opsForHash().put(dataKey, "failedTime", String.valueOf(now));
         stringRedisTemplate.expire(dataKey, Duration.ofSeconds(DATA_TTL_SECONDS));
+    }
+
+    public Long restorePreDeduct(Long orderId, Long userId, Long voucherId) {
+        return stringRedisTemplate.execute(
+                RESTORE_SCRIPT,
+                Arrays.asList(
+                        "seckill:stock:" + voucherId,
+                        "seckill:order:" + voucherId,
+                        "seckill:restore:" + orderId,
+                        PENDING_KEY
+                ),
+                userId.toString(),
+                orderId.toString(),
+                String.valueOf(System.currentTimeMillis())
+        );
     }
 
     /**
