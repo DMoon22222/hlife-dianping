@@ -34,6 +34,7 @@ build/
 
 ### Local secrets and generated test data ###
 .env
+.env.cloud
 *.env
 application-local.yml
 application-local.yaml
@@ -44,3 +45,5 @@ tokens.txt
 jmeter-results/
 logs/
 src/main/相关源码.zip
+deploy/*.local.md
+deploy/.env.cloud

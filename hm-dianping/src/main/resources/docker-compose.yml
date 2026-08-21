@@ -26,9 +26,9 @@
       - "5672:5672"
       - "15672:15672"
     environment:
-      RABBITMQ_DEFAULT_USER: ${HMDP_RABBITMQ_USERNAME:-guest}
-      RABBITMQ_DEFAULT_PASS: ${HMDP_RABBITMQ_PASSWORD:-guest}
-      RABBITMQ_DEFAULT_VHOST: ${HMDP_RABBITMQ_VIRTUAL_HOST:-/}
+      RABBITMQ_DEFAULT_USER: ${HMDP_RABBITMQ_USERNAME:-hmdp}
+      RABBITMQ_DEFAULT_PASS: ${HMDP_RABBITMQ_PASSWORD:-hmdp_mq_2026}
+      RABBITMQ_DEFAULT_VHOST: ${HMDP_RABBITMQ_VIRTUAL_HOST:-/hmdp}
       TZ: Asia/Shanghai
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
