@@ -1,19 +1,21 @@
 server:
   port: 8081
 spring:
+  config:
+    import: optional:file:.env[.properties],optional:file:hm-dianping/.env[.properties]
   application:
     name: hmdp
   main:
     banner-mode: console
   datasource:
     driver-class-name: com.mysql.jdbc.Driver
-    url: jdbc:mysql://127.0.0.1:3306/hmdp?useSSL=false&serverTimezone=UTC
-    username: root
-    password: 1234
+    url: ${HMDP_DATASOURCE_URL:jdbc:mysql://localhost:3306/hmdp?useSSL=false&serverTimezone=UTC}
+    username: ${HMDP_DATASOURCE_USERNAME:hmdp_user}
+    password: ${HMDP_DATASOURCE_PASSWORD:change-me}
   redis:
-    host: 192.168.100.129
-    port: 6380
-    password: 123321
+    host: ${HMDP_REDIS_HOST:localhost}
+    port: ${HMDP_REDIS_PORT:6379}
+    password: ${HMDP_REDIS_PASSWORD:}
     lettuce:
       pool:
         # 秒杀限流会让每个请求先访问 Redis。压测时提高连接池容量，减少应用侧等待连接的排队。
@@ -23,11 +25,11 @@ spring:
         time-between-eviction-runs: 10s
 
   rabbitmq:
-    host: 127.0.0.1
-    port: 5672
-    username: hmdp
-    password: hmdp_mq_2026
-    virtual-host: /hmdp
+    host: ${HMDP_RABBITMQ_HOST:localhost}
+    port: ${HMDP_RABBITMQ_PORT:5672}
+    username: ${HMDP_RABBITMQ_USERNAME:guest}
+    password: ${HMDP_RABBITMQ_PASSWORD:guest}
+    virtual-host: ${HMDP_RABBITMQ_VIRTUAL_HOST:/}
 
     publisher-confirm-type: correlated
     publisher-returns: true
@@ -74,3 +76,9 @@ hmdp:
     # true：Redis 预扣后发送 RabbitMQ，接口立即返回；
     # false：Redis 预扣后在接口线程同步写 MySQL，再返回。
     async-enabled: true
+  redisson:
+    enabled: false
+    node1-address: ${HMDP_REDISSON_NODE1_ADDRESS:redis://localhost:6379}
+    node2-address: ${HMDP_REDISSON_NODE2_ADDRESS:redis://localhost:6381}
+    node3-address: ${HMDP_REDISSON_NODE3_ADDRESS:redis://localhost:6382}
+    password: ${HMDP_REDISSON_PASSWORD:}

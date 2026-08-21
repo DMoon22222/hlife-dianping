@@ -35,9 +35,9 @@ GET http://localhost:8081/shop/1
 
 ```text
 Spring Boot 端口：8081
-MySQL：127.0.0.1:3306/hmdp
-Redis：192.168.100.129:6380
-RabbitMQ：127.0.0.1:5672，vhost=/hmdp
+MySQL：通过 HMDP_DATASOURCE_URL 配置
+Redis：通过 HMDP_REDIS_HOST / HMDP_REDIS_PORT 配置
+RabbitMQ：通过 HMDP_RABBITMQ_HOST / HMDP_RABBITMQ_PORT / HMDP_RABBITMQ_VIRTUAL_HOST 配置
 日志级别：root=warn，com.hmdp=warn
 ```
 
@@ -284,4 +284,3 @@ Caffeine 让 QPS 大幅提升。
 - 测试期间 CPU、内存、网络占用。
 - 多轮重复压测后的平均结果。
 - 使用非 GUI 模式运行 JMeter，降低 JMeter GUI 对压测数据的影响。
-

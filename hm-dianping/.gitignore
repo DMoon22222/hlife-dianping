@@ -31,3 +31,16 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Local secrets and generated test data ###
+.env
+*.env
+application-local.yml
+application-local.yaml
+application-dev.yml
+application-dev.yaml
+tokens.txt
+*.jtl
+jmeter-results/
+logs/
+src/main/相关源码.zip

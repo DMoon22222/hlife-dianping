@@ -3,6 +3,7 @@ package com.hmdp.config;
 import org.redisson.Redisson;
 import org.redisson.api.RedissonClient;
 import org.redisson.config.Config;
+import org.redisson.config.SingleServerConfig;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,30 +12,35 @@ import org.springframework.context.annotation.Configuration;
 @ConditionalOnProperty(prefix = "hmdp.redisson", name = "enabled", havingValue = "true")
 public class RedissonConfig {
 
+    private final HmdpProperties hmdpProperties;
+
+    public RedissonConfig(HmdpProperties hmdpProperties) {
+        this.hmdpProperties = hmdpProperties;
+    }
+
     @Bean
     public RedissonClient redissonClient() {
-        Config config = new Config();
-        config.useSingleServer()
-                .setAddress("redis://192.168.100.129:6380")
-                .setPassword("123321");
-        return Redisson.create(config);
+        return createRedissonClient(hmdpProperties.getRedisson().getNode1Address());
     }
 
     @Bean
     public RedissonClient redissonClient2() {
-        Config config = new Config();
-        config.useSingleServer()
-                .setAddress("redis://localhost:6381")
-                .setPassword("123321");
-        return Redisson.create(config);
+        return createRedissonClient(hmdpProperties.getRedisson().getNode2Address());
     }
 
     @Bean
     public RedissonClient redissonClient3() {
+        return createRedissonClient(hmdpProperties.getRedisson().getNode3Address());
+    }
+
+    private RedissonClient createRedissonClient(String address) {
         Config config = new Config();
-        config.useSingleServer()
-                .setAddress("redis://localhost:6382")
-                .setPassword("123321");
+        SingleServerConfig singleServerConfig = config.useSingleServer()
+                .setAddress(address);
+        String password = hmdpProperties.getRedisson().getPassword();
+        if (password != null && !password.trim().isEmpty()) {
+            singleServerConfig.setPassword(password);
+        }
         return Redisson.create(config);
     }
 }

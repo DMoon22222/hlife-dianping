@@ -4,7 +4,7 @@
     container_name: redis-6381
     ports:
       - "6381:6379"
-    command: redis-server --requirepass 123321 --appendonly yes
+    command: redis-server --requirepass ${HMDP_REDIS_PASSWORD:-change-me} --appendonly yes
     volumes:
       - redis-6381-data:/data
 
@@ -13,7 +13,7 @@
     container_name: redis-6382
     ports:
       - "6382:6379"
-    command: redis-server --requirepass 123321 --appendonly yes
+    command: redis-server --requirepass ${HMDP_REDIS_PASSWORD:-change-me} --appendonly yes
     volumes:
       - redis-6382-data:/data
 
@@ -26,9 +26,9 @@
       - "5672:5672"
       - "15672:15672"
     environment:
-      RABBITMQ_DEFAULT_USER: hmdp
-      RABBITMQ_DEFAULT_PASS: hmdp_mq_2026
-      RABBITMQ_DEFAULT_VHOST: "/hmdp"
+      RABBITMQ_DEFAULT_USER: ${HMDP_RABBITMQ_USERNAME:-guest}
+      RABBITMQ_DEFAULT_PASS: ${HMDP_RABBITMQ_PASSWORD:-guest}
+      RABBITMQ_DEFAULT_VHOST: ${HMDP_RABBITMQ_VIRTUAL_HOST:-/}
       TZ: Asia/Shanghai
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq

@@ -79,6 +79,26 @@ public class HmdpProperties {
          * Whether to create RedissonClient beans.
          */
         private boolean enabled = false;
+
+        /**
+         * Address of the first Redisson single-server node.
+         */
+        private String node1Address = "redis://localhost:6379";
+
+        /**
+         * Address of the second Redisson single-server node.
+         */
+        private String node2Address = "redis://localhost:6381";
+
+        /**
+         * Address of the third Redisson single-server node.
+         */
+        private String node3Address = "redis://localhost:6382";
+
+        /**
+         * Optional Redis password used by Redisson.
+         */
+        private String password = "";
     }
 
     @Data
