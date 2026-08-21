@@ -1218,7 +1218,7 @@ INSERT INTO `tb_user` VALUES (1009, '00000001005', '', 'user_4qh6bofkol', '', '2
 DROP TABLE IF EXISTS `tb_user_info`;
 CREATE TABLE `tb_user_info`  (
   `user_id` bigint(20) UNSIGNED NOT NULL COMMENT '主键，用户id',
-  `city` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT '' COMMENT '城市名称',
+  `city` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT '广州' COMMENT '城市名称',
   `introduce` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL COMMENT '个人介绍，不要超过128个字符',
   `fans` int(8) UNSIGNED NULL DEFAULT 0 COMMENT '粉丝数量',
   `followee` int(8) UNSIGNED NULL DEFAULT 0 COMMENT '关注的人的数量',

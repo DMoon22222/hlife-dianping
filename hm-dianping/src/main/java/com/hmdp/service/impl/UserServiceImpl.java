@@ -169,7 +169,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
             info = new UserInfo();
             info.setUserId(userId);
         }
-        info.setCity(StrUtil.trim(profile.getCity()));
+        info.setCity(StrUtil.blankToDefault(StrUtil.trim(profile.getCity()), "广州"));
         info.setIntroduce(introduce);
         info.setGender(profile.getGender());
         info.setBirthday(profile.getBirthday());
