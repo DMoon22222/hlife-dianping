@@ -2,6 +2,8 @@ package com.hmdp.controller;
 
 
 import com.hmdp.dto.Result;
+import com.hmdp.ratelimit.RateLimit;
+import com.hmdp.ratelimit.RateLimitScope;
 import com.hmdp.service.IVoucherOrderService;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,9 +26,16 @@ public class VoucherOrderController {
 
     @Resource
     private IVoucherOrderService voucherOrderService;
+
+    @RateLimit(
+            key = "'seckill:' + #p0",
+            maxCount = "${hmdp.rate-limit.seckill.max-count:300}",
+            windowSeconds = "${hmdp.rate-limit.seckill.window-seconds:1}",
+            scope = RateLimitScope.GLOBAL,
+            message = "当前抢购人数过多，请稍后再试"
+    )
     @PostMapping("seckill/{id}")
     public Result seckillVoucher(@PathVariable("id") Long voucherId) {
-
         return voucherOrderService.seckillVoucher(voucherId);
     }
 }

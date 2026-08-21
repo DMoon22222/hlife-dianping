@@ -1,0 +1,81 @@
+package com.hmdp.config;
+
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
+
+@Data
+@Component
+@ConfigurationProperties(prefix = "hmdp")
+public class HmdpProperties {
+
+    /**
+     * Current application instance id, used to build instance-specific queues.
+     */
+    private String instanceId = "app-1";
+
+    private Cache cache = new Cache();
+
+    private IdGenerator idGenerator = new IdGenerator();
+
+    private RateLimit rateLimit = new RateLimit();
+
+    private Redisson redisson = new Redisson();
+
+    @Data
+    public static class Cache {
+        private Shop shop = new Shop();
+    }
+
+    @Data
+    public static class Shop {
+        /**
+         * Whether shop query should use Caffeine local cache before Redis.
+         */
+        private boolean localEnabled = true;
+    }
+
+    @Data
+    public static class IdGenerator {
+        /**
+         * Snowflake worker id in the current datacenter.
+         */
+        private long workerId = 1L;
+
+        /**
+         * Snowflake datacenter id.
+         */
+        private long datacenterId = 1L;
+    }
+
+    @Data
+    public static class RateLimit {
+        /**
+         * Global switch for annotation-based Redis sliding-window rate limiting.
+         */
+        private boolean enabled = true;
+
+        private Seckill seckill = new Seckill();
+    }
+
+    @Data
+    public static class Seckill {
+        /**
+         * Maximum requests allowed in one sliding window.
+         */
+        private int maxCount = 300;
+
+        /**
+         * Sliding window length in seconds.
+         */
+        private long windowSeconds = 1L;
+    }
+
+    @Data
+    public static class Redisson {
+        /**
+         * Whether to create RedissonClient beans.
+         */
+        private boolean enabled = false;
+    }
+}

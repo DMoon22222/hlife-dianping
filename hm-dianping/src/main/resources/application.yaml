@@ -16,9 +16,10 @@ spring:
     password: 123321
     lettuce:
       pool:
-        max-active: 10
-        max-idle: 10
-        min-idle: 1
+        # 秒杀限流会让每个请求先访问 Redis。压测时提高连接池容量，减少应用侧等待连接的排队。
+        max-active: 50
+        max-idle: 20
+        min-idle: 5
         time-between-eviction-runs: 10s
 
   rabbitmq:
@@ -63,3 +64,8 @@ hmdp:
     worker-id: 1
     # 不同机房或逻辑部署区域使用不同的 datacenter-id。
     datacenter-id: 1
+  rate-limit:
+    enabled: true
+    seckill:
+      max-count: 300
+      window-seconds: 1
