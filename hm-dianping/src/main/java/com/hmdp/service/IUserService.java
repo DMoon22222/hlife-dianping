@@ -33,6 +33,13 @@ public interface IUserService extends IService<User> {
      */
     Result login(LoginFormDTO loginForm, HttpSession session);
 
+    /**
+     * 退出登录
+     * @param token 登录令牌
+     * @return 退出结果
+     */
+    Result logout(String token);
+
 
     Result sign();
 

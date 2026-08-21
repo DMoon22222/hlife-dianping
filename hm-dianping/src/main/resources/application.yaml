@@ -52,8 +52,8 @@ mybatis-plus:
     banner: true
 logging:
   level:
-    root: warn
-    com.hmdp: warn
+    root: info
+    com.hmdp: debug
 
 hmdp:
   instance-id: app-1
