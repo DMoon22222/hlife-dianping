@@ -3,6 +3,8 @@ server:
 spring:
   application:
     name: hmdp
+  main:
+    banner-mode: console
   datasource:
     driver-class-name: com.mysql.jdbc.Driver
     url: jdbc:mysql://127.0.0.1:3306/hmdp?useSSL=false&serverTimezone=UTC
@@ -43,12 +45,19 @@ spring:
     default-property-inclusion: non_null # JSON处理时忽略非空字段
 mybatis-plus:
   type-aliases-package: com.hmdp.entity # 别名扫描包
+  global-config:
+    banner: true
 logging:
   level:
     root: warn
     com.hmdp: warn
 
 hmdp:
+  instance-id: app-1
+  cache:
+    shop:
+      # 压测对比时可改为 false，关闭 Caffeine 本地缓存，只走 Redis + MySQL。
+      local-enabled: true
   id-generator:
     # 同一数据中心内，每个应用实例必须使用不同的 worker-id。
     worker-id: 1

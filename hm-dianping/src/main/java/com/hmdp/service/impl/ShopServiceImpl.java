@@ -6,9 +6,11 @@ import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.hmdp.cache.ShopCacheService;
 import com.hmdp.dto.Result;
 import com.hmdp.entity.Shop;
 import com.hmdp.mapper.ShopMapper;
+import com.hmdp.mq.CacheInvalidatePublisher;
 import com.hmdp.service.IShopService;
 import com.hmdp.utils.CacheClient;
 import com.hmdp.utils.RedisData;
@@ -49,6 +51,10 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
     //使用工具类
     @Resource
     private CacheClient cacheClient;
+    @Resource
+    private ShopCacheService shopCacheService;
+    @Resource
+    private CacheInvalidatePublisher cacheInvalidatePublisher;
 
     @Override
     public Result queryById(Long id) {
@@ -58,14 +64,12 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
         //互斥锁解决缓存击穿
         //Shop shop=queryWithMutex(id);
 
-        //逻辑过期解决缓存击穿
-        Shop shop=cacheClient.queryWithLogicalExpire(CACHE_SHOP_KEY,LOCK_SHOP_KEY,id,Shop.class,this::getById,CACHE_SHOP_TTL,TimeUnit.SECONDS);
+        Shop shop = shopCacheService.queryShopById(id, this::getById);
 
-        if(shop==null){
+        if (shop == null) {
             return Result.fail("商铺不存在");
         }
 
-        // 7、返回商铺信息
         return Result.ok(shop);
     }
 
@@ -251,8 +255,8 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
         //1、更新数据库
         updateById(shop);
 
-        //2、删除缓存
-        stringRedisTemplate.delete(CACHE_SHOP_KEY + id);
+        //2、事务提交后删除Redis、本地缓存并广播其他实例失效
+        cacheInvalidatePublisher.invalidateShopAfterCommit(id);
         return Result.ok();
     }
 

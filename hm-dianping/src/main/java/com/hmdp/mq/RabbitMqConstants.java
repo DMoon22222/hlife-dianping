@@ -61,4 +61,12 @@ public final class RabbitMqConstants {
 
     public static final String ORDER_FAILED_PARKING_ROUTING_KEY =
             "order.failed.parking";
+    /**
+     * 缓存失效广播交换机和实例队列前缀。
+     */
+    public static final String CACHE_INVALIDATE_EXCHANGE =
+            "hmdp.cache.invalidate.exchange";
+
+    public static final String CACHE_INVALIDATE_QUEUE_PREFIX =
+            "hmdp.cache.invalidate.";
 }
