@@ -9,8 +9,11 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.hmdp.dto.LoginFormDTO;
 import com.hmdp.dto.Result;
 import com.hmdp.dto.UserDTO;
+import com.hmdp.dto.UserProfileUpdateDTO;
 import com.hmdp.entity.User;
+import com.hmdp.entity.UserInfo;
 import com.hmdp.mapper.UserMapper;
+import com.hmdp.service.IUserInfoService;
 import com.hmdp.service.IUserService;
 import com.hmdp.utils.RegexUtils;
 import com.hmdp.utils.UserHolder;
@@ -49,6 +52,8 @@ import static com.hmdp.utils.SystemConstants.USER_NICK_NAME_PREFIX;
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IUserService {
     @Resource
     private StringRedisTemplate stringRedisTemplate;
+    @Resource
+    private IUserInfoService userInfoService;
 
     @Override
     public Result sendCode(String phone, HttpSession session) {
@@ -125,6 +130,62 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         }
         stringRedisTemplate.delete(LOGIN_USER_KEY + token);
         UserHolder.removeUser();
+        return Result.ok();
+    }
+
+    @Override
+    public Result updateProfile(UserProfileUpdateDTO profile, String token) {
+        UserDTO currentUser = UserHolder.getUser();
+        if (currentUser == null || currentUser.getId() == null) {
+            return Result.fail("请先登录");
+        }
+        if (profile == null) {
+            return Result.fail("资料不能为空");
+        }
+
+        Long userId = currentUser.getId();
+        String nickName = StrUtil.trim(profile.getNickName());
+        if (StrUtil.isBlank(nickName)) {
+            return Result.fail("昵称不能为空");
+        }
+        if (nickName.length() > 32) {
+            return Result.fail("昵称不能超过32个字符");
+        }
+        String introduce = StrUtil.trim(profile.getIntroduce());
+        if (introduce != null && introduce.length() > 128) {
+            return Result.fail("个人介绍不能超过128个字符");
+        }
+
+        User user = new User();
+        user.setId(userId);
+        user.setNickName(nickName);
+        if (StrUtil.isNotBlank(profile.getIcon())) {
+            user.setIcon(profile.getIcon());
+        }
+        updateById(user);
+
+        UserInfo info = userInfoService.getById(userId);
+        if (info == null) {
+            info = new UserInfo();
+            info.setUserId(userId);
+        }
+        info.setCity(StrUtil.trim(profile.getCity()));
+        info.setIntroduce(introduce);
+        info.setGender(profile.getGender());
+        info.setBirthday(profile.getBirthday());
+        userInfoService.saveOrUpdate(info);
+
+        currentUser.setNickName(nickName);
+        if (StrUtil.isNotBlank(profile.getIcon())) {
+            currentUser.setIcon(profile.getIcon());
+        }
+        if (StrUtil.isNotBlank(token)) {
+            String tokenKey = LOGIN_USER_KEY + token;
+            stringRedisTemplate.opsForHash().put(tokenKey, "nickName", currentUser.getNickName());
+            stringRedisTemplate.opsForHash().put(tokenKey, "icon", currentUser.getIcon() == null ? "" : currentUser.getIcon());
+            stringRedisTemplate.expire(tokenKey, LOGIN_USER_TTL, TimeUnit.DAYS);
+        }
+        UserHolder.saveUser(currentUser);
         return Result.ok();
     }
 

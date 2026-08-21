@@ -4,6 +4,7 @@ package com.hmdp.controller;
 import com.hmdp.dto.LoginFormDTO;
 import com.hmdp.dto.Result;
 import com.hmdp.dto.UserDTO;
+import com.hmdp.dto.UserProfileUpdateDTO;
 import com.hmdp.entity.User;
 import com.hmdp.entity.UserInfo;
 import com.hmdp.service.IUserInfoService;
@@ -82,6 +83,14 @@ public class UserController {
         info.setUpdateTime(null);
         // 返回
         return Result.ok(info);
+    }
+
+    @PutMapping("/info")
+    public Result updateInfo(
+            @RequestBody UserProfileUpdateDTO profile,
+            @RequestHeader(value = "authorization", required = false) String token
+    ){
+        return userService.updateProfile(profile, token);
     }
 
     /**

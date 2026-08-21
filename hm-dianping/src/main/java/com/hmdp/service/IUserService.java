@@ -3,6 +3,7 @@ package com.hmdp.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.hmdp.dto.LoginFormDTO;
 import com.hmdp.dto.Result;
+import com.hmdp.dto.UserProfileUpdateDTO;
 import com.hmdp.entity.User;
 
 import javax.servlet.http.HttpSession;
@@ -39,6 +40,14 @@ public interface IUserService extends IService<User> {
      * @return 退出结果
      */
     Result logout(String token);
+
+    /**
+     * 更新当前登录用户资料
+     * @param profile 资料表单
+     * @param token 登录令牌
+     * @return 更新结果
+     */
+    Result updateProfile(UserProfileUpdateDTO profile, String token);
 
 
     Result sign();
