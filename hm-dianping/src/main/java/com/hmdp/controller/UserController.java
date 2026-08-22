@@ -7,6 +7,7 @@ import com.hmdp.dto.UserDTO;
 import com.hmdp.dto.UserProfileUpdateDTO;
 import com.hmdp.entity.User;
 import com.hmdp.entity.UserInfo;
+import com.hmdp.service.IFollowService;
 import com.hmdp.service.IUserInfoService;
 import com.hmdp.service.IUserService;
 import com.hmdp.utils.UserHolder;
@@ -35,6 +36,8 @@ public class UserController {
 
     @Resource
     private IUserInfoService userInfoService;
+    @Resource
+    private IFollowService followService;
 
     /**
      * 发送手机验证码
@@ -79,6 +82,8 @@ public class UserController {
             // 没有详情，应该是第一次查看详情
             return Result.ok();
         }
+        info.setFollowee(followService.query().eq("user_id", userId).count());
+        info.setFans(followService.query().eq("follow_user_id", userId).count());
         info.setCreateTime(null);
         info.setUpdateTime(null);
         // 返回

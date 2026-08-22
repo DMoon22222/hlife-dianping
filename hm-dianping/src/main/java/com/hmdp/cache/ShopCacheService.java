@@ -53,7 +53,13 @@ public class ShopCacheService {
         String json = stringRedisTemplate.opsForValue().get(redisKey);
 
         if (StrUtil.isNotBlank(json)) {
-            return JSONUtil.toBean(json, Shop.class);
+            Shop cachedShop = JSONUtil.toBean(json, Shop.class);
+            if (cachedShop != null && cachedShop.getId() != null) {
+                return cachedShop;
+            }
+            log.warn("商户缓存内容异常，删除后回源数据库，shopId={}，cache={}", id, json);
+            stringRedisTemplate.delete(redisKey);
+            json = null;
         }
 
         if (json != null) {

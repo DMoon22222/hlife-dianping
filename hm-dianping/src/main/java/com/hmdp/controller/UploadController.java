@@ -25,7 +25,15 @@ public class UploadController {
             // 生成新文件名
             String fileName = createNewFileName(originalFilename);
             // 保存文件到nginx静态资源目录
-            image.transferTo(new File(SystemConstants.IMAGE_UPLOAD_DIR, fileName));
+            File targetFile = new File(
+                    new File(SystemConstants.IMAGE_UPLOAD_DIR).getAbsoluteFile(),
+                    trimLeadingSlash(fileName)
+            );
+            File parentFile = targetFile.getParentFile();
+            if (parentFile != null && !parentFile.exists()) {
+                parentFile.mkdirs();
+            }
+            image.transferTo(targetFile);
             // 返回结果
             log.debug("文件上传成功，{}", fileName);
             return Result.ok(fileName);
@@ -36,7 +44,11 @@ public class UploadController {
 
     @GetMapping("/blog/delete")
     public Result deleteBlogImg(@RequestParam("name") String filename) {
-        File file = new File(SystemConstants.IMAGE_UPLOAD_DIR, filename);
+        String relativeName = trimLeadingSlash(filename);
+        if (relativeName.startsWith("imgs/")) {
+            relativeName = relativeName.substring("imgs/".length());
+        }
+        File file = new File(new File(SystemConstants.IMAGE_UPLOAD_DIR).getAbsoluteFile(), relativeName);
         if (file.isDirectory()) {
             return Result.fail("错误的文件名称");
         }
@@ -52,12 +64,23 @@ public class UploadController {
         int hash = name.hashCode();
         int d1 = hash & 0xF;
         int d2 = (hash >> 4) & 0xF;
+        String relativeDir = StrUtil.format("blogs/{}/{}", d1, d2);
         // 判断目录是否存在
-        File dir = new File(SystemConstants.IMAGE_UPLOAD_DIR, StrUtil.format("/blogs/{}/{}", d1, d2));
+        File dir = new File(new File(SystemConstants.IMAGE_UPLOAD_DIR).getAbsoluteFile(), relativeDir);
         if (!dir.exists()) {
             dir.mkdirs();
         }
         // 生成文件名
-        return StrUtil.format("/blogs/{}/{}/{}.{}", d1, d2, name, suffix);
+        return StrUtil.format("/{}/{}.{}", relativeDir, name, suffix);
+    }
+
+    private String trimLeadingSlash(String path) {
+        if (path == null) {
+            return "";
+        }
+        while (path.startsWith("/") || path.startsWith("\\")) {
+            path = path.substring(1);
+        }
+        return path;
     }
 }

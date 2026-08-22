@@ -6,13 +6,16 @@ import com.hmdp.dto.Result;
 import com.hmdp.dto.UserDTO;
 import com.hmdp.entity.Follow;
 import com.hmdp.entity.User;
+import com.hmdp.entity.UserInfo;
 import com.hmdp.mapper.FollowMapper;
 import com.hmdp.service.IFollowService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.hmdp.service.IUserInfoService;
 import com.hmdp.service.IUserService;
 import com.hmdp.utils.UserHolder;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.util.Collections;
@@ -34,6 +37,8 @@ public class FollowServiceImpl extends ServiceImpl<FollowMapper, Follow> impleme
     private StringRedisTemplate stringRedisTemplate;
     @Resource
     private IUserService userService;
+    @Resource
+    private IUserInfoService userInfoService;
 
     /**
      * 关注或取关
@@ -42,28 +47,45 @@ public class FollowServiceImpl extends ServiceImpl<FollowMapper, Follow> impleme
      * @return
      */
     @Override
+    @Transactional
     public Result follow(Long followUserId, Boolean isFollow) {
         //获取当前登录用户
         Long userId= UserHolder.getUser().getId();
         String key="follows:"+userId;
+        boolean followed = query()
+                .eq("user_id", userId)
+                .eq("follow_user_id", followUserId)
+                .count() > 0;
         //1、判断到底是关注还是取关
         if(isFollow){
+            if (followed) {
+                return Result.ok();
+            }
             //2、关注，新增数据
             Follow follow=new Follow();
             follow.setUserId(userId);
             follow.setFollowUserId(followUserId);
             boolean isSuccess = save(follow);
             if(isSuccess){
+                ensureUserInfo(userId);
+                ensureUserInfo(followUserId);
+                incrementFollowee(userId);
+                incrementFans(followUserId);
                 //把关注用户的id放入redis的Set集合中 sadd userId followUserId
                 stringRedisTemplate.opsForSet().add(key,followUserId.toString());
             }
         }else{
+            if (!followed) {
+                return Result.ok();
+            }
             //3、取关，删除数据 delete from tb_follow where user_id=? and follow_user_id=?
             boolean isSuccess = remove(new QueryWrapper<Follow>()
                     .eq("user_id", userId)
                     .eq("follow_user_id", followUserId));
             //把关注用户的id从Redis中移除
             if(isSuccess) {
+                decrementFollowee(userId);
+                decrementFans(followUserId);
                 stringRedisTemplate.opsForSet().remove(key,followUserId.toString());
             }
         }
@@ -116,5 +138,42 @@ public class FollowServiceImpl extends ServiceImpl<FollowMapper, Follow> impleme
                 .collect(Collectors.toList());
 
         return Result.ok(users);
+    }
+
+    private void ensureUserInfo(Long userId) {
+        if (userInfoService.getById(userId) != null) {
+            return;
+        }
+        UserInfo userInfo = new UserInfo();
+        userInfo.setUserId(userId);
+        userInfoService.save(userInfo);
+    }
+
+    private void incrementFans(Long userId) {
+        userInfoService.update()
+                .setSql("fans = IFNULL(fans, 0) + 1")
+                .eq("user_id", userId)
+                .update();
+    }
+
+    private void decrementFans(Long userId) {
+        userInfoService.update()
+                .setSql("fans = IF(IFNULL(fans, 0) > 0, fans - 1, 0)")
+                .eq("user_id", userId)
+                .update();
+    }
+
+    private void incrementFollowee(Long userId) {
+        userInfoService.update()
+                .setSql("followee = IFNULL(followee, 0) + 1")
+                .eq("user_id", userId)
+                .update();
+    }
+
+    private void decrementFollowee(Long userId) {
+        userInfoService.update()
+                .setSql("followee = IF(IFNULL(followee, 0) > 0, followee - 1, 0)")
+                .eq("user_id", userId)
+                .update();
     }
 }
