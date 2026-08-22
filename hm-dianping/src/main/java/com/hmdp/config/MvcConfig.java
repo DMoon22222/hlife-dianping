@@ -25,7 +25,8 @@ public class MvcConfig implements WebMvcConfigurer {
                         "/shop/**",
                         "/shop-type/**",
                         "/upload/**",
-                        "/voucher/**"
+                        "/voucher/**",
+                        "/admin/redis/**"
                 ).order(1);
         //下面的先执行 token刷新拦截器
         registry.addInterceptor(refreshTokenInterceptor)
